@@ -1,4 +1,5 @@
 use std::path::Path;
+use crate::info;
 
 use md5;
 use url::Url;
@@ -8,29 +9,41 @@ const FILE_NAME_MAX_LENGTH: usize = 255;
 
 /// Convert an Url to the corresponding path
 pub fn to_path(url: &Url) -> String {
+    info!("to_path: >>> url {:#?}", url);
     let url_domain = url.host_str().unwrap();
+    info!("to_path: url_domain {:#?}", url_domain);
 
     let mut url_path_and_query = url.path().to_string();
+    info!("to_path: url_path_and_query {:#?}", url_path_and_query);
     if let Some(query) = url.query() {
         url_path_and_query.push_str("__querystring__");
         url_path_and_query.push_str(query);
+        info!("to_path: url_path_and_query {:#?}", url_path_and_query);
     }
 
     let path = Path::new(&url_path_and_query);
+    info!("to_path: path {:#?}", path);
     let mut filename = path.file_name().map_or(String::from(""), |filename| {
         filename.to_str().unwrap().to_string()
     });
+    info!("to_path: filename {:#?}", filename);
     let mut parent = path
         .parent()
         .map_or("", |filename| filename.to_str().unwrap())
         .to_string();
 
+    info!("to_path: parent {:#?}", parent);
+
     if url_path_and_query.ends_with('/') {
         filename = "index.html".to_string();
         parent = url_path_and_query.trim_end_matches('/').to_string();
+        info!("to_path: ... filename {:#?}", filename);
+        info!("to_path: ... parent {:#?}", parent);
     } else if Path::new(&filename).extension().is_none() {
         parent = url_path_and_query.trim_end_matches('/').to_string();
         filename = "index_no_slash.html".to_string();
+        info!("to_path: ::: filename {:#?}", filename);
+        info!("to_path: ::: parent {:#?}", parent);
     }
 
     if filename.len() > FILE_NAME_MAX_LENGTH {
