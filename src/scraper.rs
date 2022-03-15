@@ -30,7 +30,7 @@ static MAX_EMPTY_RECEIVES: usize = 10;
 static INFINITE_DEPTH: i32 = -1;
 
 /// Sleep duration on empty recv()
-static SLEEP_MILLIS: u64 = 100;
+static SLEEP_MILLIS: u64 = 500;
 static SLEEP_DURATION: time::Duration = time::Duration::from_millis(SLEEP_MILLIS);
 
 /// Producer and Consumer data structure. Handles the incoming requests and
@@ -48,6 +48,12 @@ impl Scraper {
     /// Create a new scraper with command line options
     pub fn new(args: args::Args) -> Scraper {
         let (tx, rx) = crossbeam::channel::unbounded();
+
+        let mut args = args;
+        if args.visit_filter_is_download_filter {
+            args.include_visit = args.include_download.clone();
+            args.exclude_visit = args.exclude_download.clone();
+        }
 
         Scraper {
             downloader: downloader::Downloader::new(
@@ -178,7 +184,7 @@ impl Scraper {
 
         dom.find_urls_as_strings()
             .into_iter()
-            .filter(|candidate| Scraper::should_visit(candidate))
+            .filter(|candidate| Scraper::should_visit(scraper, candidate))
             .for_each(|next_url| {
                 let url_to_parse = Scraper::normalize_url(next_url.clone());
 
@@ -226,6 +232,10 @@ impl Scraper {
         depth: i32,
         ext_depth: i32,
     ) {
+        let download_filter_matches = !scraper.args.exclude_download.is_match(url.as_str())
+            && scraper.args.include_download.is_match(url.as_str());
+        // download the page even if the download filter does not match,
+        // so its links can be discovered and added to the queue
         match scraper.downloader.get(&url) {
             Ok(response) => {
                 let data = match response.data {
@@ -246,10 +256,7 @@ impl Scraper {
                     let path_map = scraper.path_map.lock().unwrap();
                     let path = path_map.get(url.as_str()).unwrap();
 
-                    if !scraper.args.dry_run
-                        && !scraper.args.exclude.is_match(url.as_str())
-                        && scraper.args.include.is_match(url.as_str())
-                    {
+                    if !scraper.args.dry_run && download_filter_matches {
                         match response.filename {
                             Some(filename) => {
                                 disk::save_file(&filename, &data, &scraper.args.output);
@@ -274,7 +281,11 @@ impl Scraper {
         scraper.visited_urls.lock().unwrap().insert(url.to_string());
 
         if scraper.args.verbose {
-            info!("Visited: {}", url);
+            if download_filter_matches {
+                info!("Downloaded: {}", url);
+            } else {
+                info!("Visited: {}", url);
+            }
         }
     }
 
@@ -333,7 +344,10 @@ impl Scraper {
     }
 
     /// If a URL should be visited (ignores `mail:`, `javascript:` and other pseudo-links)
-    fn should_visit(url: &str) -> bool {
+    fn should_visit(scraper: &Scraper, url: &str) -> bool {
+        if scraper.args.exclude_visit.is_match(url) || !scraper.args.include_visit.is_match(url) {
+            return false;
+        }
         match Url::parse(url) {
             /* The given candidate is a valid URL, and not a relative path to
              * the next one. Therefore, we have to check if this URL is valid.
@@ -401,8 +415,11 @@ mod tests {
             user_agent: "suckit".to_string(),
             random_range: 0,
             verbose: true,
-            include: Regex::new("jpg").unwrap(),
-            exclude: Regex::new("png").unwrap(),
+            include_visit: Regex::new(".*").unwrap(),
+            exclude_visit: Regex::new("^$").unwrap(),
+            include_download: Regex::new("jpg").unwrap(),
+            exclude_download: Regex::new("png").unwrap(),
+            visit_filter_is_download_filter: false,
             auth: Vec::new(),
             continue_on_error: true,
             dry_run: false,
@@ -424,8 +441,11 @@ mod tests {
             user_agent: "suckit".to_string(),
             random_range: 5,
             verbose: true,
-            include: Regex::new("jpg").unwrap(),
-            exclude: Regex::new("png").unwrap(),
+            include_visit: Regex::new(".*").unwrap(),
+            exclude_visit: Regex::new("^$").unwrap(),
+            include_download: Regex::new("jpg").unwrap(),
+            exclude_download: Regex::new("png").unwrap(),
+            visit_filter_is_download_filter: false,
             auth: Vec::new(),
             continue_on_error: true,
             dry_run: false,
