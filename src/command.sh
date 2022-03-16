@@ -1,0 +1,1 @@
+RUST_BACKTRACE=1 cargo run -- http://fusor.net --jobs 16 --verbose --output ~/fusor.net --exclude-download '(?:view=print)|(?:viewtopic\.php.*p=)|(?:posting|search|ucp|viewonline|memberlist)\.php|hilit=' --tries 50 --visit-filter-is-download-filter | tee /tmp/slog
