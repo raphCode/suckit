@@ -228,7 +228,7 @@ impl Scraper {
                     }
                 }
 
-                scraper.fix_domtree(next_url, &source_path, &path);
+                scraper.fix_domtree(orig_url, &source_path, &path);
             });
 
         let utf8_data = dom.serialize().into_bytes();
