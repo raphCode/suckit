@@ -42,6 +42,7 @@ pub struct Scraper {
     downloader: downloader::Downloader,
     visited_urls: Mutex<HashSet<String>>,
     path_map: Mutex<HashMap<String, String>>,
+    rr: Regex,
 }
 
 impl Scraper {
@@ -67,6 +68,7 @@ impl Scraper {
             receiver: rx,
             visited_urls: Mutex::new(HashSet::new()),
             path_map: Mutex::new(HashMap::new()),
+            rr: Regex::new(r"sid=[0-9a-f]{32}(&?)").unwrap(),
         }
     }
 
@@ -185,7 +187,21 @@ impl Scraper {
         dom.find_urls_as_strings()
             .into_iter()
             .filter(|candidate| Scraper::should_visit(scraper, candidate))
-            .for_each(|next_url| {
+            .for_each(|orig_url| {
+                let mut result = scraper.rr.replace(orig_url.as_str(), "");
+                let next_url = result.to_mut();
+                if let Some(s) = next_url.strip_suffix("?") {
+                    *next_url = s.to_string();
+                }
+                if let Some(s) = next_url.strip_suffix("&") {
+                    *next_url = s.to_string();
+                }
+                /*
+                if orig_url != next_url {
+                    info!("replaced:\n{}\n{}", orig_url, next_url);
+                }
+                */
+
                 let url_to_parse = Scraper::normalize_url(next_url.clone());
 
                 let mut next_full_url = match url.join(url_to_parse.as_str()) {
