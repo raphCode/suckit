@@ -25,7 +25,7 @@ pub fn to_path(url: &Url) -> String {
         .map_or("", |filename| filename.to_str().unwrap())
         .to_string();
 
-    if url_path_and_query.ends_with('/') || url_path_and_query.ends_with("songs.com") {
+    if url_path_and_query.ends_with('/') || url_path_and_query.ends_with(".com") {
         filename = "index.html".to_string();
         parent = url_path_and_query.trim_end_matches('/').to_string();
     } else if Path::new(&filename).extension().is_none() {
