@@ -180,6 +180,18 @@ impl Scraper {
             .into_iter()
             .filter(|candidate| Scraper::should_visit(candidate))
             .for_each(|next_url| {
+
+                // I am obviously not experienced enough with the borrow checker, at least
+                // I feel this can be done much nicer
+                let mut url = url;
+                let fixed_url;
+                if source_path.ends_with("index_no_slash.html")
+                {
+                    let url_str_fixed = format!("{}/", url.as_str());
+                    fixed_url = Url::parse(url_str_fixed.as_str()).unwrap();
+                    url = &fixed_url;
+                }
+
                 let url_to_parse = Scraper::normalize_url(next_url.clone());
 
                 let mut next_full_url = match url.join(url_to_parse.as_str()) {
